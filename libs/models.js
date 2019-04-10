@@ -26,7 +26,7 @@ module.exports = function (sails, dir, cb) {
                 return cb(err);
             }
 
-            let finalModels = _.merge(models, supplements);
+            var finalModels = _.merge(models, supplements);
             sails.hooks.orm.models = _.merge(finalModels || {}, sails.hooks.orm.models || {});
             sails.models = _.merge(finalModels || {}, sails.models || {});
 
