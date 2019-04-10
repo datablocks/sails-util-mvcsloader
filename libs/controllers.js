@@ -25,40 +25,54 @@ module.exports = function (sails, dir, cb) {
         },
 
         // Register controllers on the main "controllers" hook
-        function registerControllers(modules, next) {
-            // Extends sails.controllers with new ones
-            sails.controllers = _.merge(modules || {}, sails.controllers || {});
+            function registerControllers (modules, next) {
+              // Loop through each controllers and register them
+              _.each(modules, function (controller, controllerId) {
+                // sails.log.debug('controller:', controller, 'controllerId: ', controller.identity);
 
-            // Loop through each controllers and register them
-            _.each(modules, function (controller, controllerId) {
-                // If controller does not exists yet, create empty object
-                sails.hooks.controllers.middleware[controllerId] = sails.hooks.controllers.middleware[controllerId] || {};
+                // cater for standalone actions (machine-pack)
+                if (controller.fn && controller.globalId && controller.identity){
+                  // this is a standalone action
+                  sails.log.verbose('Micro-Apps: register standalone action: ', controller.identity);
 
-                // Register this controller's actions
-                _.each(controller, function (action, actionId) {
-                    // actionid is always lowercase
-                    actionId = actionId.toLowerCase();
+                  // If the action function is set to `false`, explicitly disable (remove) it
+                  if (controller.fn === false) {
+                      delete sails._actions[controller.identity];
+                      return;
+                  }
+
+                  // register the action
+                  sails.registerAction(controller, controller.identity);
+
+                } else  if (controller.globalId && controller.identity) {
+                  // this is a traditional controller
+                  sails.log.verbose('Micro-Apps: register controller: ', controller.identity);
+
+                  // Register this controller's actions
+                  _.each(controller, function (action, actionId) {
+                    // create the proper actionid and make sure it is lowercase
+                    actionId = [controller.identity, actionId.toLowerCase()].join('/');
 
                     // If the action is set to `false`, explicitly disable (remove) it
                     if (action === false) {
-                        delete sails.hooks.controllers.middleware[controllerId][actionId];
-                        return;
+                      delete sails._actions[actionId];
+                      return;
                     }
 
-                    // Do not register string or boolean actions
-                    if (_.isString(action) || _.isBoolean(action)) {
-                        return;
-                    }
+                    // Do not register anything that is not a function
+                    if (!_.isFunction(action)) return;
 
-                    // Register controller's action on the main "controllers" hook
-                    action._middlewareType = 'ACTION: ' + controllerId + '/' + actionId;
-                    sails.hooks.controllers.middleware[controllerId][actionId] = action;
-                    sails.hooks.controllers.explicitActions[controllerId] = sails.hooks.controllers.explicitActions[controllerId] || {};
-                    sails.hooks.controllers.explicitActions[controllerId][actionId] = true;
-                });
-            });
+                    // sails.log.verbose('Micro-Apps: register controller action: ', action, ' actionId: ', actionId);
 
-            return next();
+                    // register the action
+                    sails.registerAction(action, actionId);
+                  });
+                } else {
+                  // throw error, this is not a controller or standalone action
+                }
+              });
+
+              return next();
         }], function (err) {
         cb(err);
     });
