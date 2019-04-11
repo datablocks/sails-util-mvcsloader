@@ -60,7 +60,7 @@ module.exports = function (sails, dir, cb) {
                     }
 
                     // Do not register anything that is not a function
-                    if (!_.isFunction(action)) return;
+                    if (typeof action!== 'function') return;
 
                     // sails.log.verbose('Micro-Apps: register controller action: ', action, ' actionId: ', actionId);
 
